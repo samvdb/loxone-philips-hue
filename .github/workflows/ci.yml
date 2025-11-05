@@ -1,0 +1,38 @@
+name: Build and Publish Docker Image to GHCR
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build Go binary
+        run: |
+          go build -v -o loxone-philips-hue .
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Docker image
+        run: |
+          docker build -t ghcr.io/samvdb/loxone-philips-hue:latest .
+
+      - name: Push Docker image
+        run: |
+          docker push ghcr.io/samvdb/loxone-philips-hue:latest
