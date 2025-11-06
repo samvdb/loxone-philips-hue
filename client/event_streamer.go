@@ -143,8 +143,6 @@ func (e *EventStreamer) handle(ctx context.Context, containers []EventContainer)
 				if len(ee.TamperReports) > 0 {
 					for _, report := range ee.TamperReports {
 						slog.Debug("tamper event", "id", ee.ID, "source", report.Source, "state", report.State)
-						
-					e.udpClient.Send([]byte(fmt.Sprintf("/contact/%s/%b", ee.ID, state)))
 					}
 				}
 			case *ContactEvent:
