@@ -73,14 +73,6 @@ func init() {
 	viper.AutomaticEnv()
 
 	viper.AddConfigPath(".")
-
-	// Load config before RunE
-	//
-	_ = rootCmd.MarkFlagRequired("loxone-ip")
-	_ = rootCmd.MarkFlagRequired("loxone-udp-port")
-	_ = rootCmd.MarkFlagRequired("philips-hue-ip")
-	_ = rootCmd.MarkFlagRequired("philips-hue-apikey")
-
 }
 func initConfig() {
 	// If --config has been provided, use that file
@@ -97,7 +89,7 @@ func initConfig() {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		slog.Info(fmt.Sprintf("Using config file: ", viper.ConfigFileUsed()))
+		slog.Info(fmt.Sprintf("Using config file: %s", viper.ConfigFileUsed()))
 
 		slog.Info("--- Configuration read from Viper ---")
 
@@ -109,12 +101,13 @@ func initConfig() {
 		}
 
 		slog.Info("--- End of configuration ---")
-		debug = viper.GetBool("debug")
-		flagLoxoneIP = viper.GetString("loxone_ip")
-		flagLoxoneUdpPort = viper.GetInt("loxone_udp_port")
-		flagPhilipsHueIP = viper.GetString("philips_hue_ip")
-		flagPhilipsHueApiKey = viper.GetString("philips_hue_apikey")
+
 	}
+	debug = viper.GetBool("debug")
+	flagLoxoneIP = viper.GetString("loxone_ip")
+	flagLoxoneUdpPort = viper.GetInt("loxone_udp_port")
+	flagPhilipsHueIP = viper.GetString("philips_hue_ip")
+	flagPhilipsHueApiKey = viper.GetString("philips_hue_apikey")
 }
 
 func Run(cmd *cobra.Command) error {
