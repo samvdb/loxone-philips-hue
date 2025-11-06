@@ -14,3 +14,7 @@
 # Misc
 .env
 *.log
+
+.vscode
+.config.json
+__debug_bin.exe
