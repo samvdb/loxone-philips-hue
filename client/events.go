@@ -9,8 +9,6 @@ import (
 	"github.com/samvdb/loxone-philips-hue/udp"
 )
 
-type EventDeviceIdentifierType string
-
 type EventContainer struct {
 	// The Hue bridge sends an array of "events", each with a "type" and "data".
 	// We keep this generic; shape varies by resource.
@@ -39,23 +37,18 @@ type EventStreamer struct {
 }
 
 const (
-	TypeContact EventDeviceIdentifierType = "contact"
-	TypeTamper  EventDeviceIdentifierType = "tamper"
-	TypeLight   EventDeviceIdentifierType = "light"
-)
-
-const (
 	EventTypeUpdate EventType = "update"
 )
+
+type Owner struct {
+	ID   string `json:"rid`
+	Type string `json:"rtype`
+}
 
 type GenericEvent struct {
 	ID    string `json:"id"`
 	Type  string `json:"type"`
 	Owner Owner  `json:"owner"`
-}
-type Owner struct {
-	ID   string `json:"rid`
-	Type string `json:"rtype`
 }
 
 type LightEvent struct {
@@ -76,20 +69,6 @@ type ContactEvent struct {
 	} `json:"contact_report,omitempty"`
 }
 
-type ContactState string
-
-const (
-	StateContact   ContactState = "contact"
-	StateNoContact ContactState = "no_contact"
-)
-
-type TamperState string
-
-const (
-	StateTampered    TamperState = "tampered"
-	StateNotTampered TamperState = "not_tampered"
-)
-
 func (e *ContactEvent) ResourceType() string { return e.Type }
 
 type TamperEvent struct {
@@ -102,6 +81,56 @@ type TamperEvent struct {
 }
 
 func (e *TamperEvent) ResourceType() string { return e.Type }
+
+type ZigbeeConnectivityEvent struct {
+	*GenericEvent
+	IDv1   string          `json:"id_v1`
+	Status ConnectedStatus `json:"status`
+}
+
+func (e *ZigbeeConnectivityEvent) ResourceType() string { return e.Type }
+
+type SceneEvent struct {
+	*GenericEvent
+	IDv1   string `json:"id_v1`
+	Status struct {
+		Active     string    `json:"active"`
+		LastRecall time.Time `json:"last_recall"`
+	} `json:"status`
+}
+
+func (e *SceneEvent) ResourceType() string { return e.Type }
+
+type GroupedLightEvent struct {
+	*GenericEvent
+	IDv1    string `json:"id_v1`
+	Dimming struct {
+		Brightness float64 `json:"brightness"`
+	} `json:"dimming`
+}
+
+func (e *GroupedLightEvent) ResourceType() string { return e.Type }
+
+type ContactState string
+
+const (
+	StateContact   ContactState = "contact"
+	StateNoContact ContactState = "no_contact"
+)
+
+type ConnectedStatus string
+
+const (
+	StatusConnected    ConnectedStatus = "connected"
+	StatusDisconnected ConnectedStatus = "connectivity_issue"
+)
+
+type TamperState string
+
+const (
+	StateTampered    TamperState = "tampered"
+	StateNotTampered TamperState = "not_tampered"
+)
 
 // Minimal probe to read only the "type" field.
 type typeProbe struct {
@@ -125,6 +154,32 @@ func decodeResource(b []byte) (EventResource, error) {
 		var ev ContactEvent
 		if err := json.Unmarshal(b, &ev); err != nil {
 			return nil, fmt.Errorf("contact: %w", err)
+		}
+		return &ev, nil
+	case "tamper":
+		var ev TamperEvent
+		if err := json.Unmarshal(b, &ev); err != nil {
+			return nil, fmt.Errorf("tamper: %w", err)
+		}
+		return &ev, nil
+
+	case "zigbee_connectivity":
+		var ev ZigbeeConnectivityEvent
+		if err := json.Unmarshal(b, &ev); err != nil {
+			return nil, fmt.Errorf("zigbee_connectivity: %w", err)
+		}
+		return &ev, nil
+	case "scene":
+		var ev SceneEvent
+		if err := json.Unmarshal(b, &ev); err != nil {
+			return nil, fmt.Errorf("scene: %w", err)
+		}
+		return &ev, nil
+
+	case "grouped_light":
+		var ev GroupedLightEvent
+		if err := json.Unmarshal(b, &ev); err != nil {
+			return nil, fmt.Errorf("grouped_light: %w", err)
 		}
 		return &ev, nil
 	// add other resource types here: "motion", "button", "temperature", ...
