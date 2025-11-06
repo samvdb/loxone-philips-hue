@@ -27,14 +27,6 @@ type EventResource interface {
 
 type EventType string
 
-type EventData struct {
-	ID        string                    `json:"id`
-	IDV1      string                    `json:"id_v1`
-	ServiceID string                    `json:"service_id`
-	Type      EventDeviceIdentifierType `json:"type"`
-	On        *OnEvent                  `json:"on,omnitempty`
-}
-
 type OnEvent struct {
 	On bool `json:"on"`
 }
@@ -57,8 +49,13 @@ const (
 )
 
 type GenericEvent struct {
-	ID   string `json:"id"`
-	Type string `json:"type"`
+	ID    string `json:"id"`
+	Type  string `json:"type"`
+	Owner Owner  `json:"owner"`
+}
+type Owner struct {
+	ID   string `json:"rid`
+	Type string `json:"rtype`
 }
 
 type LightEvent struct {
