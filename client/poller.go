@@ -2,6 +2,8 @@ package client
 
 import (
 	"context"
+	"log/slog"
+	"time"
 
 	openhue "github.com/openhue/openhue-go"
 	"github.com/samvdb/loxone-philips-hue/udp"
@@ -21,5 +23,13 @@ func NewPoller(ctx context.Context, hueHome *openhue.Home, udp *udp.Client) *Pol
 }
 
 func (p *Poller) Run() error {
-
+	slog.Debug("poller started at %s", time.Now())
+	//
+	//devices, err := p.home.GetDevices()
+	//if err != nil {
+	//	return err
+	//}
+	//for _, device := range devices {
+	//}
+	return nil
 }

@@ -3,10 +3,13 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/openhue/openhue-go"
 	"github.com/samvdb/loxone-philips-hue/client"
 	"github.com/samvdb/loxone-philips-hue/udp"
+
+	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
 
 	"log/slog"
@@ -21,6 +24,7 @@ import (
 )
 
 var (
+	cfgFile              string
 	flagLoxoneIP         string
 	flagLoxoneUdpPort    int
 	flagPhilipsHueIP     string
@@ -30,6 +34,10 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use: "",
+
+	PreRunE: func(cmd *cobra.Command, arg []string) error {
+		return viper.BindPFlags(cmd.Flags())
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// ---- validation
 		if flagLoxoneIP == "" {
@@ -59,24 +67,17 @@ var rootCmd = &cobra.Command{
 func Run(cmd *cobra.Command) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	// Handle SIGINT/SIGTERM for graceful shutdown
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		s := <-sigs
-		slog.Info("signal received, shutting down", "signal", s.String())
-		cancel()
-	}()
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	// UDP server (listen on all interfaces, same port as Loxone or pick your own)
 	// Commonly Loxone will send to us on some port; expose it with a flag if you like.
-	serverAddr := &net.UDPAddr{IP: net.IPv4zero, Port: flagLoxoneUdpPort}
-	udpServer, err := net.ListenUDP("udp", serverAddr)
-	if err != nil {
-		return fmt.Errorf("listen UDP: %w", err)
-	}
-	defer udpServer.Close()
+	//serverAddr := &net.UDPAddr{IP: net.IPv4zero, Port: flagLoxoneUdpPort}
+	//udpServer, err := net.ListenUDP("udp", serverAddr)
+	//if err != nil {
+	//	return fmt.Errorf("listen UDP: %w", err)
+	//}
+	//defer udpServer.Close()
 
 	clientLogger := slog.With("module", "client", "loxone_ip", flagLoxoneIP, "loxone_udp_port", flagLoxoneUdpPort)
 	udpClient, err := udp.NewClient(ctx, udp.ClientConfig{
@@ -126,33 +127,49 @@ func Execute() {
 }
 
 func init() {
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "Path to config file (json|yaml|toml)")
 	rootCmd.Flags().BoolVar(&debug, "debug", false, "Enable debug logging")
 	rootCmd.Flags().StringVar(&flagLoxoneIP, "loxone-ip", "", "Loxone IP")
 	rootCmd.Flags().IntVar(&flagLoxoneUdpPort, "loxone-udp-port", 1234, "Loxone's UDP server port")
 	rootCmd.Flags().StringVar(&flagPhilipsHueIP, "philips-hue-ip", "", "Philips Hue IP")
 	rootCmd.Flags().StringVar(&flagPhilipsHueApiKey, "philips-hue-apikey", "", "Philips Hue API Key")
-	// Read from environment if flag not set
-	if v := os.Getenv("LOXONE_IP"); v != "" {
-		flagLoxoneIP = v
+
+	// Bind every flag to Viper keys
+	_ = viper.BindPFlag("debug", rootCmd.Flags().Lookup("debug"))
+	_ = viper.BindPFlag("loxone_ip", rootCmd.Flags().Lookup("loxone-ip"))
+	_ = viper.BindPFlag("loxone_udp_port", rootCmd.Flags().Lookup("loxone-udp-port"))
+	_ = viper.BindPFlag("philips_hue_ip", rootCmd.Flags().Lookup("philips-hue-ip"))
+	_ = viper.BindPFlag("philips_hue_apikey", rootCmd.Flags().Lookup("philips-hue-apikey"))
+
+	// Env: MYAPP_LOXONE_IP, MYAPP_DEBUG, etc.
+	viper.SetEnvPrefix("")
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	viper.AutomaticEnv()
+
+	viper.AddConfigPath(".")
+
+	// Load config before RunE
+	cobra.OnInitialize(initConfig)
+	//
+	//_ = rootCmd.MarkFlagRequired("loxone-ip")
+	//_ = rootCmd.MarkFlagRequired("loxone-udp-port")
+	//_ = rootCmd.MarkFlagRequired("philips-hue-ip")
+	//_ = rootCmd.MarkFlagRequired("philips-hue-apikey")
+
+}
+func initConfig() {
+	// If --config has been provided, use that file
+	if cfgFile != "" {
+		viper.SetConfigFile(cfgFile)
+	} else {
+		// Default: look for config.json in CWD
+		viper.SetConfigName("config")
+		viper.SetConfigType("json")
+		viper.AddConfigPath(".")
 	}
-	if v := os.Getenv("DEBUG"); v != "" {
-		if p, err := strconv.ParseBool(v); err == nil {
-			debug = p
-		}
+
+	// Only load config if it exists
+	if err := viper.ReadInConfig(); err == nil {
+		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
-	if v := os.Getenv("PHILIPS_HUE_IP"); v != "" {
-		flagPhilipsHueIP = v
-	}
-	if v := os.Getenv("PHILIPS_HUE_APIKEY"); v != "" {
-		flagPhilipsHueApiKey = v
-	}
-	if v := os.Getenv("LOXONE_UDP_PORT"); v != "" {
-		if p, err := strconv.Atoi(v); err == nil {
-			flagLoxoneUdpPort = p
-		}
-	}
-	_ = rootCmd.MarkFlagRequired("loxone-ip")
-	_ = rootCmd.MarkFlagRequired("loxone-udp-port")
-	_ = rootCmd.MarkFlagRequired("philips-hue-ip")
-	_ = rootCmd.MarkFlagRequired("philips-hue-apikey")
 }
