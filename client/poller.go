@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strings"
 	"sync"
 	"time"
 
@@ -52,7 +51,7 @@ func (p *Poller) Run(ctx context.Context) error {
 		slog.Info("device", "id", *device.Id, "productName", *device.ProductData.ProductName, "alias", *device.Metadata.Name)
 	}
 
-	rooms, err := p.home.GetRooms()
+	rooms, _ := p.home.GetRooms()
 	for _, room := range rooms {
 		slog.Info("room", "id", *room.Id, "name", *room.Metadata.Name)
 	}
@@ -114,23 +113,23 @@ func (p *Poller) setName(key, name string) {
 	p.mu.Unlock()
 }
 
-func (p *Poller) nameFor(r openhue.Resource, fallback string) string {
-	// prefer v1 path
-	if *r.IdV1 != "" {
-		p.mu.RLock()
-		if n, ok := p.names[*r.IdV1]; ok {
-			p.mu.RUnlock()
-			return n
-		}
-		p.mu.RUnlock()
-	}
-	// try "<rtype>/<uuid>"
-	key := fmt.Sprintf("/%s/%s", strings.ToLower(*r.Type), *r.Id)
-	p.mu.RLock()
-	n := p.names[key]
-	p.mu.RUnlock()
-	if n != "" {
-		return n
-	}
-	return fallback
-}
+// func (p *Poller) nameFor(r openhue.Resource, fallback string) string {
+// 	// prefer v1 path
+// 	if *r.IdV1 != "" {
+// 		p.mu.RLock()
+// 		if n, ok := p.names[*r.IdV1]; ok {
+// 			p.mu.RUnlock()
+// 			return n
+// 		}
+// 		p.mu.RUnlock()
+// 	}
+// 	// try "<rtype>/<uuid>"
+// 	key := fmt.Sprintf("/%s/%s", strings.ToLower(*r.Type), *r.Id)
+// 	p.mu.RLock()
+// 	n := p.names[key]
+// 	p.mu.RUnlock()
+// 	if n != "" {
+// 		return n
+// 	}
+// 	return fallback
+// }
