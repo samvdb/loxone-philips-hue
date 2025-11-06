@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/samvdb/loxone-philips-hue/client"
+	"github.com/samvdb/loxone-philips-hue/hue"
 	"github.com/samvdb/loxone-philips-hue/udp"
 
 	"github.com/spf13/viper"
@@ -138,21 +139,39 @@ func Run(cmd *cobra.Command) error {
 	if err != nil {
 		return err
 	}
-	// slog.Debug("connect to home bridge", "ip", flagPhilipsHueIP, "apikey", flagPhilipsHueApiKey)
-	// hueHome, err := openhue.NewHome(flagPhilipsHueIP, flagPhilipsHueApiKey)
-	// if err != nil {
-	// 	return err
-	// }
+
 	defer udpClient.Close()
 
 	g, ctx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		serverAddr := &net.UDPAddr{IP: net.IPv4zero, Port: flagLoxoneUdpPort}
+
+		// Build Hue adapter (openhue)
+		hueAdapter, err := hue.NewAdapter(flagPhilipsHueIP, flagPhilipsHueApiKey, slog.Default())
+		if err != nil {
+			return fmt.Errorf("hue adapter: %w", err)
+		}
+
+		udpSrv, err := udp.NewServer(udp.ServerConfig{
+			ListenAddr: serverAddr,
+			Handler:    hueAdapter,
+			Logger:     slog.Default(),
+		})
+		if err != nil {
+			return err
+		}
+		defer udpSrv.Close()
+
+		return udpSrv.Run(ctx)
+	})
 
 	g.Go(func() error {
 
 		poller := client.NewStreamer(ctx, flagPhilipsHueIP, flagPhilipsHueApiKey, udpClient)
 		err := poller.Run(ctx)
 		if err != nil {
-			slog.Error("poller run failed", "error", err.Error())
+			slog.Error("streamer failed", "error", err.Error())
 		}
 
 		return err

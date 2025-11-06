@@ -182,6 +182,8 @@ func decodeResource(b []byte) (EventResource, error) {
 			return nil, fmt.Errorf("grouped_light: %w", err)
 		}
 		return &ev, nil
+	case "geofence_client":
+		return &MutedEvent{}, nil
 	// add other resource types here: "motion", "button", "temperature", ...
 	default:
 		// Unknown type? Return a raw wrapper so you don’t lose data.
@@ -195,3 +197,10 @@ type UnknownEvent struct {
 }
 
 func (e *UnknownEvent) ResourceType() string { return e.Type }
+
+type MutedEvent struct {
+	Type string
+	Raw  []byte
+}
+
+func (e *MutedEvent) ResourceType() string { return e.Type }

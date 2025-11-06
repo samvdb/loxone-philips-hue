@@ -152,14 +152,21 @@ func (e *EventStreamer) handle(ctx context.Context, containers []EventContainer)
 					if ee.ContactReport.State == StateContact {
 						state = 1
 					}
-					e.udpClient.Send([]byte(fmt.Sprintf("/contact/%s/%b", ee.ID, state)))
+					e.udpClient.Send([]byte(fmt.Sprintf("/contact/%s/state %b", ee.ID, state)))
 				}
+			case *GroupedLightEvent:
+				slog.Debug("grouped_light event", "id", ee.ID, "raw", string(raw))
 			case *ZigbeeConnectivityEvent:
 				slog.Debug("zigbee_connectivity event", "id", ee.ID, "state", ee.Status)
+
+			case *SceneEvent:
+				slog.Debug("scene event", "id", ee.ID, "raW", string(raw))
 			case *UnknownEvent:
 				// keep for diagnostics or forward to a generic handler
 				// slog.Debug("unknown event", "type", e.Type, "raw", string(e.Raw))
 				slog.Warn("unknown event", "type", ee.Type, "raw", string(ee.Raw))
+			case *MutedEvent:
+
 			default:
 				slog.Debug("unhandled event", "type", ee.ResourceType())
 			}
