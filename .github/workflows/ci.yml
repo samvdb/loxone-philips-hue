@@ -2,15 +2,12 @@ name: Build, Release, and Publish Docker Image to GHCR
 
 on:
   push:
-    branches:
-      - main
-permissions:
-  contents: write      # for semantic-release to create tags/releases
-  packages: write      # to push to GHCR
+    branches: [ main ]
 
-concurrency:
-  group: docker-${{ github.ref }}
-  cancel-in-progress: true
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -23,22 +20,24 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node (for semantic-release)
+      - name: Setup Node for semantic-release
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Run semantic-release
+      - name: Run semantic-release (no npm)
         id: semrel
         uses: cycjimmy/semantic-release-action@v4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          # We provide plugins via .releaserc.json; extra_plugins installs them
           extra_plugins: |
             @semantic-release/commit-analyzer
             @semantic-release/release-notes-generator
             @semantic-release/changelog
             @semantic-release/github
+            @semantic-release/git
 
   build-and-push:
     needs: release
@@ -50,7 +49,7 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
-      - name: Set up Docker Buildx
+      - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
@@ -60,28 +59,25 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-     # Generate Docker tags dynamically
       - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            # Always tag by commit SHA (immutable)
+            # immutable tag for the commit
             type=sha
-            # Tag as "latest" for main branch pushes
+            # moving "latest" for main
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-            # Add semantic-release tags when a new release was just published
+            # semantic-release version tags, if a new release was just published
             type=raw,value=${{ needs.release.outputs.new_release_version }},enable=${{ needs.release.outputs.new_release_published == 'true' }}
             type=raw,value=v${{ needs.release.outputs.new_release_version }},enable=${{ needs.release.outputs.new_release_published == 'true' }}
 
-       # Build & push (multi-arch optional; remove platforms if not needed)
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          # e.g., linux/amd64 only: platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
