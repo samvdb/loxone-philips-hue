@@ -58,11 +58,16 @@ func (a *Adapter) applyGroupedLight(ctx context.Context, cmd udp.Command) error 
 		val, _ := strconv.ParseFloat(cmd.Value, 64)
 		// n is 0..100
 		b := openhue.Brightness(val)
+		on := true
+		if val <= 0.0 {
+			on = false
+		}
 		a.logger.Info("set light brightness", "id", id, "brightness", b)
 		return a.home.UpdateGroupedLight(id, openhue.GroupedLightPut{
 			Dimming: &openhue.Dimming{
 				Brightness: &b,
 			},
+			On: &openhue.On{On: &on},
 		})
 	default:
 		return fmt.Errorf("unsupported light action: %s", cmd.Action)
