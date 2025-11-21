@@ -76,13 +76,6 @@ func (p *Poller) refreshNames(ctx context.Context) error {
 		p.setName(*device.Id, *device.ProductData.ProductName, *device.Metadata.Name, device.IdV1, cleanName(*device.ProductData.ProductName))
 	}
 
-	resources, err := p.home.GetResources()
-	if err != nil {
-		return err
-	}
-	for _, res := range resources {
-		slog.Info("resource", "id", *res.Id, "productName")
-	}
 	rooms, err := p.home.GetRooms()
 	if err != nil {
 		return err

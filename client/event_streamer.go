@@ -160,6 +160,9 @@ func (e *EventStreamer) handle(ctx context.Context, containers []EventContainer)
 				}
 			case *MotionEvent:
 				if ee.Motion.MotionReport != nil {
+					if parent.ID == "" {
+						continue
+					}
 					slog.Debug("motion event", "id", parent.ID, "device", e.poller.GetDevice(parent.ID), "motion", ee.Motion.MotionReport.Motion)
 					value := 0
 					// convert to 1 or 0
@@ -167,6 +170,20 @@ func (e *EventStreamer) handle(ctx context.Context, containers []EventContainer)
 						value = 1
 					}
 					e.udpClient.Send([]byte(fmt.Sprintf("/sensor/%s/motion %b", parent.ID, value)))
+				}
+
+			case *GroupedMotionEvent:
+				if ee.Motion.MotionReport != nil {
+					if parent.Type == "bridge_home" {
+						continue
+					}
+					slog.Debug("grouped motion event", "id", parent.ID, "group", e.poller.GetDevice(parent.ID), "grouped_motion", ee.Motion.MotionReport.Motion)
+					value := 0
+					// convert to 1 or 0
+					if ee.Motion.MotionReport.Motion {
+						value = 1
+					}
+					e.udpClient.Send([]byte(fmt.Sprintf("/group/%s/motion %b", parent.ID, value)))
 				}
 
 			case *LightLevelEvent:

@@ -132,6 +132,10 @@ type MotionEvent struct {
 
 func (e *MotionEvent) ResourceType() string { return e.Type }
 
+type GroupedMotionEvent struct {
+	*MotionEvent
+}
+
 type LightLevelEvent struct {
 	*GenericEvent
 	IDv1    string `json:"id_v1"`
@@ -240,7 +244,7 @@ func decodeResource(b []byte) (EventResource, error) {
 		return &ev, nil
 
 	case "grouped_motion":
-		var ev MotionEvent
+		var ev GroupedMotionEvent
 		if err := json.Unmarshal(b, &ev); err != nil {
 			return nil, fmt.Errorf("grouped_motion: %w", err)
 		}
