@@ -111,6 +111,21 @@ type GroupedLightEvent struct {
 
 func (e *GroupedLightEvent) ResourceType() string { return e.Type }
 
+type MotionEvent struct {
+	*GenericEvent
+	IDv1   string `json:"id_v1`
+	Motion struct {
+		// Motion       bool `json:"motion"` // Deprecated, moved to Motion_report
+		// MotionValid  bool `json:"motion_valid"` // Deprecated
+		MotionReport *struct {
+			Changed time.Time `json:"changed`
+			Motion  bool      `json:"motion"`
+		} `json:"motion_report"`
+	} `json:"motion"`
+}
+
+func (e *MotionEvent) ResourceType() string { return e.Type }
+
 type ContactState string
 
 const (
@@ -180,6 +195,12 @@ func decodeResource(b []byte) (EventResource, error) {
 		var ev GroupedLightEvent
 		if err := json.Unmarshal(b, &ev); err != nil {
 			return nil, fmt.Errorf("grouped_light: %w", err)
+		}
+		return &ev, nil
+	case "motion":
+		var ev MotionEvent
+		if err := json.Unmarshal(b, &ev); err != nil {
+			return nil, fmt.Errorf("motion: %w", err)
 		}
 		return &ev, nil
 	case "geofence_client":

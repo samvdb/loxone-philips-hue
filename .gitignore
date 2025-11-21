@@ -18,3 +18,4 @@
 .vscode
 .config.json
 __debug_bin.exe
+_debug_bin.*

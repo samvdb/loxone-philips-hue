@@ -154,6 +154,16 @@ func (e *EventStreamer) handle(ctx context.Context, containers []EventContainer)
 					}
 					e.udpClient.Send([]byte(fmt.Sprintf("/contact/%s/state %b", ee.ID, state)))
 				}
+			case *MotionEvent:
+				if ee.Motion.MotionReport != nil {
+					slog.Debug("contact event", "id", ee.ID, "motion", ee.Motion.MotionReport.Motion)
+					value := 0
+					// convert to 1 or 0
+					if ee.Motion.MotionReport.Motion {
+						value = 1
+					}
+					e.udpClient.Send([]byte(fmt.Sprintf("/motion/%s/motion %b", ee.ID, value)))
+				}
 			case *GroupedLightEvent:
 				slog.Debug("grouped_light event", "id", ee.ID, "raw", string(raw))
 			case *ZigbeeConnectivityEvent:
