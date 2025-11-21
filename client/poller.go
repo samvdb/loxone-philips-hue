@@ -15,10 +15,22 @@ type Poller struct {
 	homeIP  string
 	homeKey string
 	// name index like the Python 'names' map; we try v1 id if available, else fallback.
-	mu              sync.RWMutex
-	names           map[string]string // key: id_v1 ("/lights/1") OR "<rtype>/<uuid>"
+	mu    sync.RWMutex
+	names map[string]Device // key: id_v1 ("/lights/1") OR "<rtype>/<uuid>"
+
 	lastRefresh     time.Time
 	refreshInterval time.Duration
+}
+
+type Device struct {
+	Name  string
+	Type  string
+	Alias string
+	IDv1  string
+}
+
+func (d *Device) toString() string {
+	return fmt.Sprintf("%s %s - %s ", d.IDv1, d.Name, d.Alias)
 }
 
 func NewPoller(ctx context.Context, bridgeIP string, hueAPIKey string) *Poller {
@@ -26,7 +38,7 @@ func NewPoller(ctx context.Context, bridgeIP string, hueAPIKey string) *Poller {
 	return &Poller{
 		homeIP:          bridgeIP,
 		homeKey:         hueAPIKey,
-		names:           make(map[string]string),
+		names:           make(map[string]Device),
 		refreshInterval: time.Hour,
 	}
 }
@@ -61,16 +73,33 @@ func (p *Poller) refreshNames(ctx context.Context) error {
 	}
 	for _, device := range devices {
 		slog.Info("device", "id", *device.Id, "productName", *device.ProductData.ProductName, "alias", *device.Metadata.Name)
+		p.setName(*device.Id, *device.ProductData.ProductName, *device.Metadata.Name, device.IdV1, cleanName(*device.ProductData.ProductName))
 	}
 
+	resources, err := p.home.GetResources()
+	if err != nil {
+		return err
+	}
+	for _, res := range resources {
+		slog.Info("resource", "id", *res.Id, "productName")
+	}
 	rooms, err := p.home.GetRooms()
 	if err != nil {
 		return err
 	}
 
+	for _, r := range rooms {
+		slog.Info("room", "id", *r.Id, "name", *r.Metadata.Name)
+		p.setName(*r.Id, "room", *r.Metadata.Name, r.IdV1, "room")
+	}
+
 	zones, err := p.home.GetZones(ctx)
 	if err != nil {
 		return err
+	}
+
+	for _, r := range zones {
+		slog.Info("zone", "id", *r.Id, "name", *r.Metadata.Name)
 	}
 
 	grouped, err := p.home.GetGroupedLights()
@@ -103,13 +132,37 @@ func (p *Poller) refreshNames(ctx context.Context) error {
 	return nil
 }
 
-func (p *Poller) setName(key, name string) {
+func (p *Poller) setName(key, name string, alias string, idv1 *string, t string) {
 	if key == "" || name == "" {
 		return
 	}
 	p.mu.Lock()
-	p.names[key] = name
+	idv := ""
+	if idv1 != nil {
+		idv = *idv1
+	}
+	p.names[key] = Device{Name: name, Alias: alias, IDv1: idv, Type: t}
 	p.mu.Unlock()
+}
+
+func (p *Poller) GetDevice(key string) string {
+	if key == "" {
+		return ""
+	}
+	if d, ok := p.names[key]; ok {
+		return d.toString()
+	}
+	return ""
+}
+
+func (p *Poller) GetName(key string) string {
+	if key == "" {
+		return ""
+	}
+	if d, ok := p.names[key]; ok {
+		return d.Name
+	}
+	return ""
 }
 
 // func (p *Poller) nameFor(r openhue.Resource, fallback string) string {

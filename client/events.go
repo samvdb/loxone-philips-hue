@@ -21,6 +21,7 @@ type EventContainer struct {
 
 type EventResource interface {
 	ResourceType() string
+	GetGeneric() *GenericEvent
 }
 
 type EventType string
@@ -34,6 +35,7 @@ type EventStreamer struct {
 	url        string
 	apiKey     string
 	udpClient  *udp.Client
+	poller     *Poller
 }
 
 const (
@@ -49,6 +51,10 @@ type GenericEvent struct {
 	ID    string `json:"id"`
 	Type  string `json:"type"`
 	Owner Owner  `json:"owner"`
+}
+
+func (e *GenericEvent) GetGeneric() *GenericEvent {
+	return e
 }
 
 type LightEvent struct {
@@ -233,6 +239,13 @@ func decodeResource(b []byte) (EventResource, error) {
 		}
 		return &ev, nil
 
+	case "grouped_motion":
+		var ev MotionEvent
+		if err := json.Unmarshal(b, &ev); err != nil {
+			return nil, fmt.Errorf("grouped_motion: %w", err)
+		}
+		return &ev, nil
+
 	case "light_level":
 		var ev LightEvent
 		if err := json.Unmarshal(b, &ev); err != nil {
@@ -246,9 +259,17 @@ func decodeResource(b []byte) (EventResource, error) {
 		}
 		return &ev, nil
 	case "geofence_client":
-		return &MutedEvent{}, nil
+		var ev MutedEvent
+		if err := json.Unmarshal(b, &ev); err != nil {
+			return nil, fmt.Errorf("muted: %w", err)
+		}
+		return &ev, nil
 	case "grouped_light_level":
-		return &MutedEvent{}, nil
+		var ev MutedEvent
+		if err := json.Unmarshal(b, &ev); err != nil {
+			return nil, fmt.Errorf("muted: %w", err)
+		}
+		return &ev, nil
 	// add other resource types here: "motion", "button", "temperature", ...
 	default:
 		// Unknown type? Return a raw wrapper so you don’t lose data.
@@ -263,7 +284,12 @@ type UnknownEvent struct {
 
 func (e *UnknownEvent) ResourceType() string { return e.Type }
 
+func (e *UnknownEvent) GetGeneric() *GenericEvent {
+	return &GenericEvent{}
+}
+
 type MutedEvent struct {
+	*GenericEvent
 	Type string
 	Raw  []byte
 }

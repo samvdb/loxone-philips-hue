@@ -144,6 +144,8 @@ func Run(cmd *cobra.Command) error {
 
 	g, ctx := errgroup.WithContext(ctx)
 
+	poller := client.NewPoller(ctx, flagPhilipsHueIP, flagPhilipsHueApiKey)
+
 	g.Go(func() error {
 		serverAddr := &net.UDPAddr{IP: net.IPv4zero, Port: flagLoxoneUdpPort}
 
@@ -168,7 +170,7 @@ func Run(cmd *cobra.Command) error {
 
 	g.Go(func() error {
 
-		streamer := client.NewStreamer(ctx, flagPhilipsHueIP, flagPhilipsHueApiKey, udpClient)
+		streamer := client.NewStreamer(ctx, flagPhilipsHueIP, flagPhilipsHueApiKey, udpClient, poller)
 		err := streamer.Run(ctx)
 		if err != nil {
 			slog.Error("streamer failed", "error", err.Error())
@@ -180,7 +182,6 @@ func Run(cmd *cobra.Command) error {
 
 	g.Go(func() error {
 
-		poller := client.NewPoller(ctx, flagPhilipsHueIP, flagPhilipsHueApiKey)
 		err := poller.Run(ctx)
 		if err != nil {
 			slog.Error("poller5 failed", "error", err.Error())

@@ -16,7 +16,7 @@ import (
 
 const backoffMax = 30 * time.Second
 
-func NewStreamer(ctx context.Context, bridgeIP string, hueAPIKey string, udpClient *udp.Client) EventStreamer {
+func NewStreamer(ctx context.Context, bridgeIP string, hueAPIKey string, udpClient *udp.Client, poller *Poller) EventStreamer {
 
 	tlsCfg := &tls.Config{InsecureSkipVerify: true}
 	client := &http.Client{Transport: &http2.Transport{TLSClientConfig: tlsCfg}}
@@ -26,6 +26,7 @@ func NewStreamer(ctx context.Context, bridgeIP string, hueAPIKey string, udpClie
 		url:        fmt.Sprintf("https://%s/eventstream/clip/v2", bridgeIP),
 		apiKey:     hueAPIKey,
 		udpClient:  udpClient,
+		poller:     poller,
 	}
 
 }
@@ -134,56 +135,60 @@ func (e *EventStreamer) handle(ctx context.Context, containers []EventContainer)
 			if err != nil {
 				return err
 			}
+
+			parent := ev.GetGeneric().Owner
+
 			switch ee := ev.(type) {
 			case *LightEvent:
 				if ee.On != nil {
-					slog.Debug("light event", "id", ee.ID, "on", ee.On.On)
+					slog.Debug("light event", "id", parent.ID, "device", e.poller.GetDevice(parent.ID), "on", ee.On.On)
 				}
 			case *TamperEvent:
 				if len(ee.TamperReports) > 0 {
 					for _, report := range ee.TamperReports {
-						slog.Debug("tamper event", "id", ee.ID, "source", report.Source, "state", report.State)
+						slog.Debug("tamper event", "id", parent.ID, "device", e.poller.GetDevice(parent.ID), "source", report.Source, "state", report.State)
 					}
 				}
 			case *ContactEvent:
 				if ee.ContactReport != nil {
-					slog.Debug("contact event", "id", ee.ID, "state", ee.ContactReport.State)
+					slog.Debug("contact event", "id", parent.ID, "device", e.poller.GetDevice(parent.ID), "state", ee.ContactReport.State)
 					state := 0
 					if ee.ContactReport.State == StateContact {
 						state = 1
 					}
-					e.udpClient.Send([]byte(fmt.Sprintf("/contact/%s/state %b", ee.ID, state)))
+					e.udpClient.Send([]byte(fmt.Sprintf("/contact/%s/state %b", parent.ID, state)))
 				}
 			case *MotionEvent:
 				if ee.Motion.MotionReport != nil {
-					slog.Debug("motion event", "id", ee.ID, "motion", ee.Motion.MotionReport.Motion)
+					slog.Debug("motion event", "id", parent.ID, "device", e.poller.GetDevice(parent.ID), "motion", ee.Motion.MotionReport.Motion)
 					value := 0
 					// convert to 1 or 0
 					if ee.Motion.MotionReport.Motion {
 						value = 1
 					}
-					e.udpClient.Send([]byte(fmt.Sprintf("/sensor/%s/motion %b", ee.ID, value)))
+					e.udpClient.Send([]byte(fmt.Sprintf("/sensor/%s/motion %b", parent.ID, value)))
 				}
+
 			case *LightLevelEvent:
 				if ee.Light.LightLevelReport != nil {
-					slog.Debug("light level event", "id", ee.ID, "light_level", ee.Light.LightLevelReport.LightLevel)
+					slog.Debug("light level event", "id", parent.ID, "device", e.poller.GetDevice(parent.ID), "light_level", ee.Light.LightLevelReport.LightLevel)
 
-					e.udpClient.Send([]byte(fmt.Sprintf("/sensor/%s/light_level %f", ee.ID, ee.Light.LightLevelReport.LightLevel)))
+					e.udpClient.Send([]byte(fmt.Sprintf("/sensor/%s/light_level %f", parent.ID, ee.Light.LightLevelReport.LightLevel)))
 				}
 
 			case *TemperatureEvent:
 				if ee.Temperature.TemperatureReport != nil {
-					slog.Debug("temperature event", "id", ee.ID, "temperature", ee.Temperature.TemperatureReport.Temperature)
+					slog.Debug("temperature event", "id", parent.ID, "device", e.poller.GetDevice(parent.ID), "temperature", ee.Temperature.TemperatureReport.Temperature)
 
-					e.udpClient.Send([]byte(fmt.Sprintf("/sensor/%s/temperature %.2f", ee.ID, ee.Temperature.TemperatureReport.Temperature)))
+					e.udpClient.Send([]byte(fmt.Sprintf("/sensor/%s/temperature %.2f", parent.ID, ee.Temperature.TemperatureReport.Temperature)))
 				}
 			case *GroupedLightEvent:
-				slog.Debug("grouped_light event", "id", ee.ID, "raw", string(raw))
+				slog.Debug("grouped_light event", "id", parent.ID, "device", e.poller.GetDevice(parent.ID), "raw", string(raw))
 			case *ZigbeeConnectivityEvent:
-				slog.Debug("zigbee_connectivity event", "id", ee.ID, "state", ee.Status)
+				slog.Debug("zigbee_connectivity event", "id", parent.ID, "state", ee.Status)
 
 			case *SceneEvent:
-				slog.Debug("scene event", "id", ee.ID, "raW", string(raw))
+				slog.Debug("scene event", "id", parent.ID, "raW", string(raw))
 			case *UnknownEvent:
 				// keep for diagnostics or forward to a generic handler
 				// slog.Debug("unknown event", "type", e.Type, "raw", string(e.Raw))
