@@ -13,11 +13,11 @@ import (
 )
 
 type Server struct {
-	conn   *net.UDPConn
-	log    *slog.Logger
-	handle CommandHandler
-
-	readBuf int
+	conn       *net.UDPConn
+	log        *slog.Logger
+	handle     CommandHandler
+	listenAddr *net.UDPAddr
+	readBuf    int
 }
 
 // CommandHandler receives parsed commands and should call Hue.
@@ -52,15 +52,12 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 	if cfg.Logger == nil {
 		cfg.Logger = slog.Default()
 	}
-	conn, err := net.ListenUDP("udp", cfg.ListenAddr)
-	if err != nil {
-		return nil, fmt.Errorf("listen UDP: %w", err)
-	}
+
 	return &Server{
-		conn:    conn,
-		log:     cfg.Logger.With("module", "udpserver", "addr", cfg.ListenAddr.String()),
-		handle:  cfg.Handler,
-		readBuf: cfg.ReadBuf,
+		listenAddr: cfg.ListenAddr,
+		log:        cfg.Logger.With("module", "udpserver", "addr", cfg.ListenAddr.String()),
+		handle:     cfg.Handler,
+		readBuf:    cfg.ReadBuf,
 	}, nil
 }
 
@@ -70,7 +67,11 @@ func (s *Server) Close() error {
 
 // Run loops until ctx is cancelled. It sets short deadlines to make cancellation responsive.
 func (s *Server) Run(ctx context.Context) error {
-	defer s.conn.Close()
+	conn, err := net.ListenUDP("udp4", s.listenAddr)
+	if err != nil {
+		return fmt.Errorf("listen UDP: %w", err)
+	}
+	s.conn = conn
 	s.log.Info("udp server started")
 	buf := make([]byte, s.readBuf)
 	for {

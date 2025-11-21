@@ -38,9 +38,6 @@ func (a *Adapter) Apply(ctx context.Context, cmd udp.Command) error {
 	}
 }
 
-
-
-
 func (a *Adapter) applyGroupedLight(ctx context.Context, cmd udp.Command) error {
 	id := cmd.ID
 	switch cmd.Action {
@@ -50,9 +47,12 @@ func (a *Adapter) applyGroupedLight(ctx context.Context, cmd udp.Command) error 
 
 		a.logger.Info("set light on/off", "id", id, "on", on)
 		// Replace with your openhue call:
-		light, _ := a.home.GetGroupedLightById(cmd.ID)
-		return a.home.UpdateLight(cmd.ID, openhue.LightPut{
-			On: light.Toggle(),
+		_, err := a.home.GetGroupedLightById(cmd.ID)
+		if err != nil {
+			return err
+		}
+		return a.home.UpdateGroupedLight(cmd.ID, openhue.GroupedLightPut{
+			On: &openhue.On{On: &on},
 		})
 	case "dimmable":
 		val, _ := strconv.ParseFloat(cmd.Value, 64)
