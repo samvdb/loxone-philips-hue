@@ -72,25 +72,24 @@ func (s *Server) Close() error {
 func (s *Server) Run(ctx context.Context) error {
 	defer s.conn.Close()
 	s.log.Info("udp server started")
-
 	buf := make([]byte, s.readBuf)
-
 	for {
 		// Make ReadFromUDP interruptible via deadline.
 		_ = s.conn.SetReadDeadline(time.Now().Add(1 * time.Second))
-
 		n, addr, err := s.conn.ReadFromUDP(buf)
-		if ne, ok := err.(net.Error); ok && ne.Timeout() {
-			// check ctx and continue
-			select {
-			case <-ctx.Done():
-				s.log.Info("udp server stopping (context cancelled)")
-				return ctx.Err()
-			default:
-				continue
-			}
-		}
 		if err != nil {
+			var ne net.Error
+			if errors.As(err, &ne) && ne.Timeout() {
+				// check ctx and continue
+				select {
+				case <-ctx.Done():
+					s.log.Info("udp server stopping (context cancelled)")
+					return ctx.Err()
+				default:
+					continue
+				}
+			}
+
 			// If ctx is cancelled, treat any read error as shutdown.
 			select {
 			case <-ctx.Done():
@@ -114,6 +113,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 		// Handle in-line; UDP is cheap—if needed later, you can add a worker pool.
 		callCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		slog.Info("applying command", "domain", cmd.Domain, "action", cmd.Action, "id", cmd.ID, "value", cmd.Value)
 		err = s.handle.Apply(callCtx, cmd)
 		cancel()
 		if err != nil {
@@ -124,8 +124,8 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 }
 
-// /light/<id>/on true
-// /light/<id>/dimmable 75
+// /grouped_light/<id>/on true
+// /grouped_light/<id>/dimmable 75
 func parseCommand(line string) (Command, error) {
 	parts := strings.Fields(line)
 	if len(parts) < 2 {
@@ -148,7 +148,7 @@ func parseCommand(line string) (Command, error) {
 
 	// basic validation
 	switch cmd.Domain {
-	case "light":
+	case "grouped_light":
 	default:
 		return Command{}, fmt.Errorf("unsupported domain: %s", cmd.Domain)
 	}

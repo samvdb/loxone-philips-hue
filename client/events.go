@@ -41,8 +41,8 @@ const (
 )
 
 type Owner struct {
-	ID   string `json:"rid`
-	Type string `json:"rtype`
+	ID   string `json:"rid"`
+	Type string `json:"rtype"`
 }
 
 type GenericEvent struct {
@@ -74,7 +74,7 @@ func (e *ContactEvent) ResourceType() string { return e.Type }
 type TamperEvent struct {
 	*GenericEvent
 	TamperReports []*struct {
-		Source  string      `json:"source`
+		Source  string      `json:"source"`
 		State   TamperState `json:"state"`
 		Changed *time.Time  `json:"changed,omitempty"`
 	} `json:"tamper_reports,omitempty"`
@@ -84,47 +84,76 @@ func (e *TamperEvent) ResourceType() string { return e.Type }
 
 type ZigbeeConnectivityEvent struct {
 	*GenericEvent
-	IDv1   string          `json:"id_v1`
-	Status ConnectedStatus `json:"status`
+	IDv1   string          `json:"id_v1"`
+	Status ConnectedStatus `json:"status"`
 }
 
 func (e *ZigbeeConnectivityEvent) ResourceType() string { return e.Type }
 
 type SceneEvent struct {
 	*GenericEvent
-	IDv1   string `json:"id_v1`
+	IDv1   string `json:"id_v1"`
 	Status struct {
 		Active     string    `json:"active"`
 		LastRecall time.Time `json:"last_recall"`
-	} `json:"status`
+	} `json:"status"`
 }
 
 func (e *SceneEvent) ResourceType() string { return e.Type }
 
 type GroupedLightEvent struct {
 	*GenericEvent
-	IDv1    string `json:"id_v1`
+	IDv1    string `json:"id_v1"`
 	Dimming struct {
 		Brightness float64 `json:"brightness"`
-	} `json:"dimming`
+	} `json:"dimming"`
 }
 
 func (e *GroupedLightEvent) ResourceType() string { return e.Type }
 
 type MotionEvent struct {
 	*GenericEvent
-	IDv1   string `json:"id_v1`
+	IDv1   string `json:"id_v1"`
 	Motion struct {
 		// Motion       bool `json:"motion"` // Deprecated, moved to Motion_report
 		// MotionValid  bool `json:"motion_valid"` // Deprecated
 		MotionReport *struct {
-			Changed time.Time `json:"changed`
+			Changed time.Time `json:"changed"`
 			Motion  bool      `json:"motion"`
 		} `json:"motion_report"`
 	} `json:"motion"`
 }
 
 func (e *MotionEvent) ResourceType() string { return e.Type }
+
+type LightLevelEvent struct {
+	*GenericEvent
+	IDv1    string `json:"id_v1"`
+	Enabled bool   `json:"enabled"`
+	Light   struct {
+		LightLevelReport *struct {
+			Changed time.Time `json:"changed"`
+			//Light level in 10000*log10(lux) +1 measured by sensor. Logarithmic scale used because the human eye adjusts to light levels and small changes at low lux levels are more noticeable than at high lux levels. This allows use of linear scale configuration sliders.
+			LightLevel float64 `json:"motion"`
+		} `json:"motion_report"`
+	} `json:"motion"`
+}
+
+func (e *LightLevelEvent) ResourceType() string { return e.Type }
+
+type TemperatureEvent struct {
+	*GenericEvent
+	IDv1        string `json:"id_v1"`
+	Temperature struct {
+		TemperatureReport *struct {
+			Changed time.Time `json:"changed"`
+			// Temperature in 1.00 degrees Celsius
+			Temperature float64 `json:"temperature"`
+		} `json:"temperature_report"`
+	} `json:"temperature"`
+}
+
+func (e *TemperatureEvent) ResourceType() string { return e.Type }
 
 type ContactState string
 
@@ -203,7 +232,22 @@ func decodeResource(b []byte) (EventResource, error) {
 			return nil, fmt.Errorf("motion: %w", err)
 		}
 		return &ev, nil
+
+	case "light_level":
+		var ev LightEvent
+		if err := json.Unmarshal(b, &ev); err != nil {
+			return nil, fmt.Errorf("light_level: %w", err)
+		}
+		return &ev, nil
+	case "temperature":
+		var ev TemperatureEvent
+		if err := json.Unmarshal(b, &ev); err != nil {
+			return nil, fmt.Errorf("temperature: %w", err)
+		}
+		return &ev, nil
 	case "geofence_client":
+		return &MutedEvent{}, nil
+	case "grouped_light_level":
 		return &MutedEvent{}, nil
 	// add other resource types here: "motion", "button", "temperature", ...
 	default:

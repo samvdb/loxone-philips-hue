@@ -30,12 +30,16 @@ func NewAdapter(ip, appKey string, logger *slog.Logger) (*Adapter, error) {
 
 func (a *Adapter) Apply(ctx context.Context, cmd udp.Command) error {
 	switch cmd.Domain {
+
 	case "grouped_light":
 		return a.applyGroupedLight(ctx, cmd)
 	default:
 		return fmt.Errorf("unsupported domain: %s", cmd.Domain)
 	}
 }
+
+
+
 
 func (a *Adapter) applyGroupedLight(ctx context.Context, cmd udp.Command) error {
 	id := cmd.ID

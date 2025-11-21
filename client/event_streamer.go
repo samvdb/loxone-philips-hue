@@ -156,13 +156,26 @@ func (e *EventStreamer) handle(ctx context.Context, containers []EventContainer)
 				}
 			case *MotionEvent:
 				if ee.Motion.MotionReport != nil {
-					slog.Debug("contact event", "id", ee.ID, "motion", ee.Motion.MotionReport.Motion)
+					slog.Debug("motion event", "id", ee.ID, "motion", ee.Motion.MotionReport.Motion)
 					value := 0
 					// convert to 1 or 0
 					if ee.Motion.MotionReport.Motion {
 						value = 1
 					}
-					e.udpClient.Send([]byte(fmt.Sprintf("/motion/%s/motion %b", ee.ID, value)))
+					e.udpClient.Send([]byte(fmt.Sprintf("/sensor/%s/motion %b", ee.ID, value)))
+				}
+			case *LightLevelEvent:
+				if ee.Light.LightLevelReport != nil {
+					slog.Debug("light level event", "id", ee.ID, "light_level", ee.Light.LightLevelReport.LightLevel)
+
+					e.udpClient.Send([]byte(fmt.Sprintf("/sensor/%s/light_level %f", ee.ID, ee.Light.LightLevelReport.LightLevel)))
+				}
+
+			case *TemperatureEvent:
+				if ee.Temperature.TemperatureReport != nil {
+					slog.Debug("temperature event", "id", ee.ID, "temperature", ee.Temperature.TemperatureReport.Temperature)
+
+					e.udpClient.Send([]byte(fmt.Sprintf("/sensor/%s/temperature %.2f", ee.ID, ee.Temperature.TemperatureReport.Temperature)))
 				}
 			case *GroupedLightEvent:
 				slog.Debug("grouped_light event", "id", ee.ID, "raw", string(raw))

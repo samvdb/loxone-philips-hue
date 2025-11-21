@@ -168,10 +168,22 @@ func Run(cmd *cobra.Command) error {
 
 	g.Go(func() error {
 
-		poller := client.NewStreamer(ctx, flagPhilipsHueIP, flagPhilipsHueApiKey, udpClient)
-		err := poller.Run(ctx)
+		streamer := client.NewStreamer(ctx, flagPhilipsHueIP, flagPhilipsHueApiKey, udpClient)
+		err := streamer.Run(ctx)
 		if err != nil {
 			slog.Error("streamer failed", "error", err.Error())
+		}
+
+		return err
+
+	})
+
+	g.Go(func() error {
+
+		poller := client.NewPoller(ctx, flagPhilipsHueIP, flagPhilipsHueApiKey)
+		err := poller.Run(ctx)
+		if err != nil {
+			slog.Error("poller5 failed", "error", err.Error())
 		}
 
 		return err
