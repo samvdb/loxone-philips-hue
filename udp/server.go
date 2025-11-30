@@ -127,6 +127,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 // /grouped_light/<id>/on true
 // /grouped_light/<id>/dimmable 75
+// /scene/<id>/on true
 func parseCommand(line string) (Command, error) {
 	parts := strings.Fields(line)
 	if len(parts) < 2 {
@@ -150,6 +151,7 @@ func parseCommand(line string) (Command, error) {
 	// basic validation
 	switch cmd.Domain {
 	case "grouped_light":
+	case "scene":
 	default:
 		return Command{}, fmt.Errorf("unsupported domain: %s", cmd.Domain)
 	}

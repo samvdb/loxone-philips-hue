@@ -144,12 +144,18 @@ type LightLevelEvent struct {
 		LightLevelReport *struct {
 			Changed time.Time `json:"changed"`
 			//Light level in 10000*log10(lux) +1 measured by sensor. Logarithmic scale used because the human eye adjusts to light levels and small changes at low lux levels are more noticeable than at high lux levels. This allows use of linear scale configuration sliders.
-			LightLevel float64 `json:"motion"`
-		} `json:"motion_report"`
+			LightLevel float64 `json:"light_level"`
+		} `json:"light_level_report"`
 	} `json:"motion"`
 }
 
 func (e *LightLevelEvent) ResourceType() string { return e.Type }
+
+type GroupedLightLevelEvent struct {
+	*LightLevelEvent
+}
+
+func (e *GroupedLightLevelEvent) ResourceType() string { return e.Type }
 
 type TemperatureEvent struct {
 	*GenericEvent
@@ -251,9 +257,16 @@ func decodeResource(b []byte) (EventResource, error) {
 		return &ev, nil
 
 	case "light_level":
-		var ev LightEvent
+		var ev LightLevelEvent
 		if err := json.Unmarshal(b, &ev); err != nil {
 			return nil, fmt.Errorf("light_level: %w", err)
+		}
+		return &ev, nil
+
+	case "grouped_light_level":
+		var ev GroupedLightEvent
+		if err := json.Unmarshal(b, &ev); err != nil {
+			return nil, fmt.Errorf("grouped_light_level: %w", err)
 		}
 		return &ev, nil
 	case "temperature":
@@ -268,12 +281,7 @@ func decodeResource(b []byte) (EventResource, error) {
 			return nil, fmt.Errorf("muted: %w", err)
 		}
 		return &ev, nil
-	case "grouped_light_level":
-		var ev MutedEvent
-		if err := json.Unmarshal(b, &ev); err != nil {
-			return nil, fmt.Errorf("muted: %w", err)
-		}
-		return &ev, nil
+
 	// add other resource types here: "motion", "button", "temperature", ...
 	default:
 		// Unknown type? Return a raw wrapper so you don’t lose data.

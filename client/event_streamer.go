@@ -193,6 +193,13 @@ func (e *EventStreamer) handle(ctx context.Context, containers []EventContainer)
 					e.udpClient.Send([]byte(fmt.Sprintf("/sensor/%s/light_level %f", parent.ID, ee.Light.LightLevelReport.LightLevel)))
 				}
 
+			case *GroupedLightLevelEvent:
+				if ee.Light.LightLevelReport != nil {
+					slog.Debug("grouped light level event", "id", parent.ID, "device", e.poller.GetDevice(parent.ID), "light_level", ee.Light.LightLevelReport.LightLevel)
+
+					e.udpClient.Send([]byte(fmt.Sprintf("/sensor/%s/light_level %f", parent.ID, ee.Light.LightLevelReport.LightLevel)))
+				}
+
 			case *TemperatureEvent:
 				if ee.Temperature.TemperatureReport != nil {
 					slog.Debug("temperature event", "id", parent.ID, "device", e.poller.GetDevice(parent.ID), "temperature", ee.Temperature.TemperatureReport.Temperature)

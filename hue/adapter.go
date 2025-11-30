@@ -33,8 +33,26 @@ func (a *Adapter) Apply(ctx context.Context, cmd udp.Command) error {
 
 	case "grouped_light":
 		return a.applyGroupedLight(ctx, cmd)
+	case "scene":
+		return a.applyScene(ctx, cmd)
 	default:
 		return fmt.Errorf("unsupported domain: %s", cmd.Domain)
+	}
+}
+
+func (a *Adapter) applyScene(ctx context.Context, cmd udp.Command) error {
+	id := cmd.ID
+	switch cmd.Action {
+	case "on":
+		// can only be turned on
+		on := openhue.SceneRecallActionActive
+		a.logger.Info("set scene on/off", "id", id, "on", on)
+
+		return a.home.UpdateScene(cmd.ID, openhue.ScenePut{
+			Recall: &openhue.SceneRecall{Action: &on},
+		})
+	default:
+		return fmt.Errorf("unsupported scene action: %s", cmd.Action)
 	}
 }
 

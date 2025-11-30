@@ -86,6 +86,20 @@ func (p *Poller) refreshNames(ctx context.Context) error {
 		p.setName(*r.Id, "room", *r.Metadata.Name, r.IdV1, "room")
 	}
 
+	scenes, err := p.home.GetScenes()
+	if err != nil {
+		return err
+	}
+
+	for _, r := range scenes {
+		gName := ""
+		switch *r.Group.Rtype {
+		case "room":
+			gName = p.GetAlias(*r.Group.Rid)
+		}
+		slog.Info("scene", "id", *r.Id, "name", *r.Metadata.Name, "type", *r.Group.Rtype, "group_name", gName)
+	}
+
 	zones, err := p.home.GetZones(ctx)
 	if err != nil {
 		return err
@@ -154,6 +168,16 @@ func (p *Poller) GetName(key string) string {
 	}
 	if d, ok := p.names[key]; ok {
 		return d.Name
+	}
+	return ""
+}
+
+func (p *Poller) GetAlias(key string) string {
+	if key == "" {
+		return ""
+	}
+	if d, ok := p.names[key]; ok {
+		return d.Alias
 	}
 	return ""
 }
