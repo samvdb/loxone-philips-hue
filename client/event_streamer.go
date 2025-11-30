@@ -197,7 +197,7 @@ func (e *EventStreamer) handle(ctx context.Context, containers []EventContainer)
 				if ee.Light.LightLevelReport != nil {
 					slog.Debug("grouped light level event", "id", parent.ID, "device", e.poller.GetDevice(parent.ID), "light_level", ee.Light.LightLevelReport.LightLevel)
 
-					e.udpClient.Send([]byte(fmt.Sprintf("/sensor/%s/light_level %f", parent.ID, ee.Light.LightLevelReport.LightLevel)))
+					e.udpClient.Send([]byte(fmt.Sprintf("/sensor/%s/grouped_light_level %f", parent.ID, ee.Light.LightLevelReport.LightLevel)))
 				}
 
 			case *TemperatureEvent:
@@ -212,7 +212,14 @@ func (e *EventStreamer) handle(ctx context.Context, containers []EventContainer)
 				slog.Debug("zigbee_connectivity event", "id", parent.ID, "state", ee.Status)
 
 			case *SceneEvent:
-				slog.Debug("scene event", "id", parent.ID, "raW", string(raw))
+				scene := e.poller.GetScene(ee.ID)
+				slog.Debug("scene event", "id", ee.ID, "status", ee.Status.Active, "scene", scene)
+				if scene == nil {
+					continue
+				}
+				if ee.Status.Active == "static" {
+					e.udpClient.Send([]byte(fmt.Sprintf("/scene/%s/on %s", scene.GroupID, ee.ID)))
+				}
 			case *UnknownEvent:
 				// keep for diagnostics or forward to a generic handler
 				// slog.Debug("unknown event", "type", e.Type, "raw", string(e.Raw))

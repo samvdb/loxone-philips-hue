@@ -55,6 +55,25 @@ func (h *Home) GetZones(ctx context.Context) (map[string]openhue.RoomGet, error)
 	return zones, nil
 }
 
+func (h *Home) GetScene(ctx context.Context, id string) (*openhue.SceneGet, error) {
+	resp, err := h.api.GetSceneWithResponse(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.HTTPResponse.StatusCode != http.StatusOK {
+		return nil, newApiError(resp) // copy or re-implement same logic
+	}
+
+	data := *(*resp.JSON200).Data
+
+	for _, scene := range data {
+		return &scene, nil
+	}
+
+	return nil, nil
+}
+
 // newClient creates a new ClientWithResponses for a given Bridge IP and API key.
 // This function will also skip SSL verification, as the Philips HUE Bridge exposes a self-signed certificate.
 func newClient(bridgeIP, apiKey string) (*openhue.ClientWithResponses, error) {

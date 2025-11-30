@@ -15,8 +15,9 @@ type Poller struct {
 	homeIP  string
 	homeKey string
 	// name index like the Python 'names' map; we try v1 id if available, else fallback.
-	mu    sync.RWMutex
-	names map[string]Device // key: id_v1 ("/lights/1") OR "<rtype>/<uuid>"
+	mu     sync.RWMutex
+	names  map[string]Device // key: id_v1 ("/lights/1") OR "<rtype>/<uuid>"
+	scenes map[string]Scene
 
 	lastRefresh     time.Time
 	refreshInterval time.Duration
@@ -29,6 +30,17 @@ type Device struct {
 	IDv1  string
 }
 
+type Scene struct {
+	ID      string
+	Name    string
+	Group   string
+	GroupID string
+	IDv1    string
+}
+
+func (s *Scene) toString() string {
+	return fmt.Sprintf("%s %s - %s %s", s.ID, s.Name, s.Group, s.GroupID)
+}
 func (d *Device) toString() string {
 	return fmt.Sprintf("%s %s - %s ", d.IDv1, d.Name, d.Alias)
 }
@@ -39,6 +51,7 @@ func NewPoller(ctx context.Context, bridgeIP string, hueAPIKey string) *Poller {
 		homeIP:          bridgeIP,
 		homeKey:         hueAPIKey,
 		names:           make(map[string]Device),
+		scenes:          make(map[string]Scene),
 		refreshInterval: time.Hour,
 	}
 }
@@ -96,6 +109,13 @@ func (p *Poller) refreshNames(ctx context.Context) error {
 		switch *r.Group.Rtype {
 		case "room":
 			gName = p.GetAlias(*r.Group.Rid)
+			p.scenes[*r.Id] = Scene{
+				Name:    *r.Metadata.Name,
+				ID:      *r.Id,
+				IDv1:    *r.IdV1,
+				Group:   gName,
+				GroupID: *r.Group.Rid,
+			}
 		}
 		slog.Info("scene", "id", *r.Id, "name", *r.Metadata.Name, "type", *r.Group.Rtype, "group_name", gName)
 	}
@@ -160,6 +180,16 @@ func (p *Poller) GetDevice(key string) string {
 		return d.toString()
 	}
 	return ""
+}
+
+func (p *Poller) GetScene(key string) *Scene {
+	if key == "" {
+		return nil
+	}
+	if d, ok := p.scenes[key]; ok {
+		return &d
+	}
+	return nil
 }
 
 func (p *Poller) GetName(key string) string {
